@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { apiLogger } from "@/lib/logger";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { sendFirmWelcomeEmail } from "@/lib/email";
 
 const log = apiLogger("/api/admin/firms");
 
@@ -101,6 +102,10 @@ export async function POST(req: NextRequest) {
     });
 
     log.info({ firmId: firm.id, adminId: admin.id }, "Firm onboarded");
+
+    // Fire-and-forget welcome email to the new firm admin
+    sendFirmWelcomeEmail(data.adminEmail, data.adminName, firm.name, data.adminPassword).catch(() => {});
+
     return NextResponse.json({ firm, admin: { id: admin.id, name: admin.name, email: admin.email } });
   } catch (err) {
     if (err instanceof z.ZodError) {

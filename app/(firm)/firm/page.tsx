@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import {
   Clock,
   CheckCircle2,
@@ -12,8 +12,6 @@ import {
   ArrowRight,
   Search,
   BarChart3,
-  Sparkles,
-  ArrowUpRight,
 } from "lucide-react";
 
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -42,6 +40,18 @@ interface FirmStats {
       company: { name: string };
     };
   }>;
+  dailyVolume?: Array<{
+    day: string;
+    uploads: number;
+    accepted: number;
+  }>;
+  recentActivity?: Array<{
+    id: string;
+    action: string;
+    description: string;
+    createdAt: string;
+    userName: string;
+  }>;
 }
 
 interface MeUser {
@@ -52,38 +62,6 @@ interface MeUser {
   firm?: { name: string } | null;
 }
 
-// Generate believable random series with smoothing
-function buildSparkline(seed: number, base: number, variance: number): number[] {
-  const out: number[] = [];
-  let current = base;
-  let rng = seed;
-  for (let i = 0; i < 12; i++) {
-    rng = (rng * 9301 + 49297) % 233280;
-    const delta = ((rng / 233280) - 0.5) * variance * 2;
-    current = Math.max(0, current + delta);
-    out.push(current);
-  }
-  return out;
-}
-
-function buildVolumeSeries(seedAccepted: number, seedUploaded: number) {
-  const days: Array<{ day: string; uploaded: number; accepted: number }> = [];
-  let upRng = seedUploaded || 7;
-  let acRng = seedAccepted || 13;
-  for (let i = 13; i >= 0; i--) {
-    upRng = (upRng * 9301 + 49297) % 233280;
-    acRng = (acRng * 9301 + 49297) % 233280;
-    const date = subDays(new Date(), i);
-    const upBase = 12 + Math.round((upRng / 233280) * 22);
-    const acBase = Math.max(4, Math.round(upBase * (0.55 + (acRng / 233280) * 0.3)));
-    days.push({
-      day: format(date, "MMM d"),
-      uploaded: upBase,
-      accepted: acBase,
-    });
-  }
-  return days;
-}
 
 function companyInitial(name: string) {
   return name
@@ -186,51 +164,45 @@ export default function FirmDashboard() {
     return user.name.split(" ")[0];
   }, [user]);
 
-  const volumeData = useMemo(
-    () =>
-      buildVolumeSeries(
-        stats?.acceptedToday ?? 5,
-        stats?.pendingCount ?? 8
-      ),
-    [stats?.acceptedToday, stats?.pendingCount]
-  );
+  const volumeData = stats?.dailyVolume ?? [];
 
   const volumeSeries: AreaChartSeries[] = [
-    { key: "uploaded", label: "Uploaded", color: "#6366f1" },
+    { key: "uploads", label: "Uploaded", color: "#6366f1" },
     { key: "accepted", label: "Accepted", color: "#10b981" },
   ];
 
   const previewTx = (stats?.pendingTransactions ?? []).slice(0, 5);
 
-  // Build activity feed (semi-synthetic from pending transactions plus generic events)
+  // Build activity feed from real audit log entries returned by the API
   const activity: ActivityItem[] = useMemo(() => {
-    const items: ActivityItem[] = [];
-    if (stats?.pendingTransactions) {
-      stats.pendingTransactions.slice(0, 4).forEach((tx, i) => {
-        items.push({
-          id: `tx-${tx.id}`,
-          icon: tx.status === "UNDER_REVIEW" ? AlertTriangle : Clock,
-          iconColor: tx.status === "UNDER_REVIEW" ? "blue" : "amber",
-          actor: tx.document.company.name,
-          action: tx.status === "UNDER_REVIEW" ? "moved to under review" : "uploaded",
-          target: tx.document.originalName,
-          timestamp: new Date(Date.now() - (i + 1) * 1000 * 60 * (10 + i * 6)),
-        });
-      });
-    }
-    if (stats?.acceptedToday && stats.acceptedToday > 0) {
-      items.push({
-        id: "evt-acceptedbatch",
-        icon: CheckCircle2,
-        iconColor: "green",
-        actor: "You",
-        action: "accepted",
-        target: `${stats.acceptedToday} transactions today`,
-        timestamp: new Date(Date.now() - 1000 * 60 * 75),
-      });
-    }
-    return items;
-  }, [stats]);
+    if (!stats?.recentActivity || stats.recentActivity.length === 0) return [];
+    return stats.recentActivity.map((log) => {
+      const actionLower = (log.action ?? "").toLowerCase();
+      let icon = Clock;
+      let iconColor: ActivityItem["iconColor"] = "blue";
+      if (actionLower.includes("accept") || actionLower.includes("approve")) {
+        icon = CheckCircle2;
+        iconColor = "green";
+      } else if (actionLower.includes("reject")) {
+        icon = AlertTriangle;
+        iconColor = "red";
+      } else if (actionLower.includes("upload") || actionLower.includes("create")) {
+        icon = Clock;
+        iconColor = "amber";
+      } else if (actionLower.includes("review")) {
+        icon = AlertTriangle;
+        iconColor = "blue";
+      }
+      return {
+        id: log.id,
+        icon,
+        iconColor,
+        actor: log.userName,
+        action: log.description,
+        timestamp: new Date(log.createdAt),
+      };
+    });
+  }, [stats?.recentActivity]);
 
   const now = new Date();
   const dateLabel = format(now, "EEEE, MMM d");
@@ -296,37 +268,29 @@ export default function FirmDashboard() {
         <KpiCard
           title="Pending Review"
           value={loading ? "—" : stats?.pendingCount ?? 0}
-          change={{ value: 12, positive: true }}
           icon={Clock}
           color="amber"
-          sparkline={buildSparkline(1, 8, 4)}
           index={0}
         />
         <KpiCard
           title="Under Review"
           value={loading ? "—" : stats?.underReviewCount ?? 0}
-          change={{ value: 4, positive: false }}
           icon={AlertTriangle}
           color="blue"
-          sparkline={buildSparkline(2, 5, 3)}
           index={1}
         />
         <KpiCard
           title="Accepted Today"
           value={loading ? "—" : stats?.acceptedToday ?? 0}
-          change={{ value: 18, positive: true }}
           icon={CheckCircle2}
           color="green"
-          sparkline={buildSparkline(3, 10, 5)}
           index={2}
         />
         <KpiCard
           title="Total Companies"
           value={loading ? "—" : stats?.totalCompanies ?? 0}
-          change={{ value: 0, positive: true }}
           icon={Building2}
           color="violet"
-          sparkline={buildSparkline(4, 6, 2)}
           index={3}
         />
       </div>
@@ -348,10 +312,6 @@ export default function FirmDashboard() {
               <p className="text-xs text-muted-foreground">
                 Uploads vs accepted over the last 14 days
               </p>
-            </div>
-            <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              <span className="tabular-nums">+8.2%</span>
             </div>
           </div>
           <AreaChart

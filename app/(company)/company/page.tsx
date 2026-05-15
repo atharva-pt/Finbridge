@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { format, formatDistanceToNow, subMonths } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -21,7 +21,6 @@ import {
   XCircle,
   Upload,
   ArrowRight,
-  TrendingUp,
   Sparkles,
 } from "lucide-react";
 
@@ -45,6 +44,8 @@ interface Stats {
     createdAt: string;
     document: { originalName: string; documentType: string };
   }>;
+  monthlySpending?: Array<{ month: string; amount: number }>;
+  topVendors?: Array<{ vendor: string; amount: number }>;
 }
 
 interface MeUser {
@@ -64,30 +65,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-function buildSparkline(seed: number, base: number, variance: number): number[] {
-  const out: number[] = [];
-  let current = base;
-  let rng = seed;
-  for (let i = 0; i < 12; i++) {
-    rng = (rng * 9301 + 49297) % 233280;
-    const delta = ((rng / 233280) - 0.5) * variance * 2;
-    current = Math.max(0, current + delta);
-    out.push(current);
-  }
-  return out;
-}
-
-function buildMonthlySpending(seed: number) {
-  let rng = seed;
-  const months: Array<{ month: string; amount: number }> = [];
-  for (let i = 5; i >= 0; i--) {
-    rng = (rng * 9301 + 49297) % 233280;
-    const date = subMonths(new Date(), i);
-    const base = 180000 + Math.round((rng / 233280) * 320000);
-    months.push({ month: format(date, "MMM"), amount: base });
-  }
-  return months;
-}
 
 interface BarTooltipPayloadItem {
   name?: string;
@@ -141,26 +118,9 @@ export default function CompanyDashboard() {
     return user.name.split(" ")[0];
   }, [user]);
 
-  const spendingData = useMemo(
-    () => buildMonthlySpending((stats?.totalDocuments ?? 6) * 7 + 11),
-    [stats?.totalDocuments]
-  );
+  const spendingData = stats?.monthlySpending ?? [];
 
-  // Top vendors derived from recent activity (group by vendor)
-  const topVendors = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const item of stats?.recentActivity ?? []) {
-      if (!item.vendorName || !item.totalAmount) continue;
-      map.set(item.vendorName, (map.get(item.vendorName) ?? 0) + item.totalAmount);
-    }
-    if (map.size === 0) {
-      return [];
-    }
-    return Array.from(map.entries())
-      .map(([vendor, amount]) => ({ vendor, amount }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
-  }, [stats?.recentActivity]);
+  const topVendors = stats?.topVendors ?? [];
 
   const maxVendor = topVendors.reduce((m, v) => Math.max(m, v.amount), 0) || 1;
 
@@ -221,37 +181,29 @@ export default function CompanyDashboard() {
         <KpiCard
           title="Total Documents"
           value={loading ? "—" : stats?.totalDocuments ?? 0}
-          change={{ value: 9, positive: true }}
           icon={FileText}
           color="indigo"
-          sparkline={buildSparkline(7, 6, 3)}
           index={0}
         />
         <KpiCard
           title="Pending Review"
           value={loading ? "—" : stats?.pendingReview ?? 0}
-          change={{ value: 3, positive: false }}
           icon={Clock}
           color="amber"
-          sparkline={buildSparkline(8, 4, 2)}
           index={1}
         />
         <KpiCard
           title="Accepted"
           value={loading ? "—" : stats?.accepted ?? 0}
-          change={{ value: 14, positive: true }}
           icon={CheckCircle2}
           color="green"
-          sparkline={buildSparkline(9, 8, 4)}
           index={2}
         />
         <KpiCard
           title="Rejected"
           value={loading ? "—" : stats?.rejected ?? 0}
-          change={{ value: 2, positive: false }}
           icon={XCircle}
           color="red"
-          sparkline={buildSparkline(10, 1, 1)}
           index={3}
         />
       </div>
@@ -273,10 +225,6 @@ export default function CompanyDashboard() {
               <p className="text-xs text-muted-foreground">
                 Accepted transaction amounts · last 6 months
               </p>
-            </div>
-            <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3" />
-              <span className="tabular-nums">+12.4%</span>
             </div>
           </div>
           <div className="w-full h-[280px]">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { subMonths, startOfMonth, format } from "date-fns";
 
 export async function GET() {
   try {
@@ -15,7 +16,9 @@ export async function GET() {
       return NextResponse.json({ error: "No company associated" }, { status: 400 });
     }
 
-    const [totalDocuments, pendingReview, accepted, rejected, recentActivity] = await Promise.all([
+    const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
+
+    const [totalDocuments, pendingReview, accepted, rejected, recentActivity, acceptedLast6Months, vendorTotals] = await Promise.all([
       prisma.transaction.count({
         where: { document: { companyId: session.companyId } },
       }),
@@ -40,13 +43,65 @@ export async function GET() {
           status: true,
           vendorName: true,
           totalAmount: true,
+          confidenceScore: true,
           createdAt: true,
           document: {
             select: { id: true, originalName: true, documentType: true },
           },
         },
       }),
+      // Accepted transactions in the last 6 months with amounts
+      prisma.transaction.findMany({
+        where: {
+          status: "ACCEPTED",
+          document: { companyId: session.companyId },
+          acceptedAt: { gte: sixMonthsAgo },
+          totalAmount: { not: null },
+        },
+        select: { acceptedAt: true, totalAmount: true },
+      }),
+      // Top vendors by total amount (accepted transactions)
+      prisma.transaction.findMany({
+        where: {
+          status: "ACCEPTED",
+          document: { companyId: session.companyId },
+          vendorName: { not: null },
+          totalAmount: { not: null },
+        },
+        select: { vendorName: true, totalAmount: true },
+      }),
     ]);
+
+    // Build monthlySpending: aggregate accepted amounts by month for last 6 months
+    const spendingByMonth = new Map<string, number>();
+    for (const tx of acceptedLast6Months) {
+      if (tx.acceptedAt && tx.totalAmount) {
+        const key = format(new Date(tx.acceptedAt), "yyyy-MM");
+        spendingByMonth.set(key, (spendingByMonth.get(key) ?? 0) + tx.totalAmount);
+      }
+    }
+
+    const monthlySpending: Array<{ month: string; amount: number }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = subMonths(new Date(), i);
+      const key = format(date, "yyyy-MM");
+      monthlySpending.push({
+        month: format(date, "MMM"),
+        amount: Math.round(spendingByMonth.get(key) ?? 0),
+      });
+    }
+
+    // Build topVendors: top 5 vendors by total accepted amount
+    const vendorMap = new Map<string, number>();
+    for (const tx of vendorTotals) {
+      if (tx.vendorName && tx.totalAmount) {
+        vendorMap.set(tx.vendorName, (vendorMap.get(tx.vendorName) ?? 0) + tx.totalAmount);
+      }
+    }
+    const topVendors = Array.from(vendorMap.entries())
+      .map(([vendor, amount]) => ({ vendor, amount: Math.round(amount) }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
 
     return NextResponse.json({
       totalDocuments,
@@ -54,6 +109,8 @@ export async function GET() {
       accepted,
       rejected,
       recentActivity,
+      monthlySpending,
+      topVendors,
     });
   } catch (err) {
     console.error("Company stats error:", err);

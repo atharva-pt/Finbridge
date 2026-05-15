@@ -85,7 +85,7 @@ export function KpiCard({
             >
               <Icon className={cn("w-4 h-4", colors.text)} />
             </div>
-            <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
+            <p className="text-xs font-medium text-muted-foreground">{title}</p>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold tracking-tight tabular-nums text-foreground">

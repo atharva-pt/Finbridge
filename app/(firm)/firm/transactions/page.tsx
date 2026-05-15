@@ -7,9 +7,18 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { FileText, Search, ChevronRight } from "lucide-react";
+import { FileText, Search, ChevronRight, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface Transaction {
   id: string;
@@ -142,14 +151,52 @@ export default function FirmTransactionsPage() {
         {/* Sticky search + filter bar */}
         <div className="sticky top-14 z-10 bg-card/95 backdrop-blur border-b border-border">
           <div className="px-5 py-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by company, vendor, or document name…"
-                className="w-full bg-muted/50 border border-border hover:border-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/15 rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-all"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by company, vendor, or document name…"
+                  className="w-full bg-muted/50 border border-border hover:border-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/15 rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-all"
+                />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl border border-border bg-background text-foreground hover:bg-accent transition-colors whitespace-nowrap">
+                  <Download className="w-4 h-4" />
+                  Export
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Export format</DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      params.set("format", "csv");
+                      if (activeFilter) params.set("status", activeFilter);
+                      if (search) params.set("search", search);
+                      window.open(`/api/transactions/export?${params}`);
+                    }}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Download CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      params.set("format", "tally");
+                      if (activeFilter) params.set("status", activeFilter);
+                      if (search) params.set("search", search);
+                      window.open(`/api/transactions/export?${params}`);
+                    }}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export for Tally
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               {STATUS_FILTERS.map((f) => {

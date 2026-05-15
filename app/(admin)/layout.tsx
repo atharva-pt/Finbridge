@@ -1,5 +1,6 @@
 import { getSession, getFullUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AdminSignOutButton } from "./sign-out-button";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -22,8 +23,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className="font-bold text-sm text-foreground">FinBridge</span>
           <span className="text-muted-foreground/40 text-sm">·</span>
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Platform Admin</span>
+          <span className="text-muted-foreground/40 text-sm">·</span>
+          <Link href="/admin/audit" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Audit Log
+          </Link>
         </div>
-        <AdminSignOutButton />
+        <AdminSignOutButton name={user.name} email={user.email} />
       </header>
       <main className="max-w-6xl mx-auto px-6 py-8">{children}</main>
     </div>

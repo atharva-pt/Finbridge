@@ -17,7 +17,18 @@ import {
   ChevronRight,
   Zap,
   Menu,
+  Shield,
+  ClipboardList,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
@@ -35,6 +46,7 @@ const FIRM_NAV: NavItem[] = [
   { label: "Companies", href: "/firm/companies", icon: Building2 },
   { label: "Reports", href: "/firm/reports", icon: BarChart3 },
   { label: "Team", href: "/firm/team", icon: Users },
+  { label: "Activity Log", href: "/firm/audit", icon: ClipboardList },
 ];
 
 const COMPANY_NAV: NavItem[] = [
@@ -59,6 +71,14 @@ export function AppSidebar({ role, user }: AppSidebarProps) {
 
   const isFirmRole = ["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(role);
   const navItems = isFirmRole ? FIRM_NAV : COMPANY_NAV;
+
+  const ROLE_LABELS: Record<string, string> = {
+    PLATFORM_ADMIN: "Platform Admin",
+    FIRM_ADMIN: "Firm Admin",
+    FIRM_ACCOUNTANT: "Accountant",
+    COMPANY_ADMIN: "Company Admin",
+    COMPANY_USER: "Company User",
+  };
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -185,68 +205,85 @@ export function AppSidebar({ role, user }: AppSidebarProps) {
         {/* Theme toggle */}
         <ThemeToggle collapsed={!sidebarOpen} />
 
-        {/* User row */}
-        <div className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-xl",
-          sidebarOpen ? "justify-between" : "justify-center"
-        )}>
-          <div className="flex items-center gap-3 min-w-0">
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-border shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
-                {initials}
-              </div>
+        {/* User profile dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl w-full hover:bg-accent transition-colors cursor-pointer outline-none",
+              sidebarOpen ? "justify-between" : "justify-center"
             )}
-            <AnimatePresence>
-              {sidebarOpen && (
-                <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="min-w-0 overflow-hidden"
-                >
-                  <p className="text-xs font-600 text-foreground truncate whitespace-nowrap" style={{ fontWeight: 600 }}>
-                    {user.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground truncate whitespace-nowrap">
-                    {user.email}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          <AnimatePresence>
-            {sidebarOpen && (
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                title="Sign out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-        {!sidebarOpen && (
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="w-full flex items-center justify-center h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-            title="Sign out"
           >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        )}
+            <div className="flex items-center gap-3 min-w-0">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-border shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                  {initials}
+                </div>
+              )}
+              <AnimatePresence>
+                {sidebarOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: "auto" }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="min-w-0 overflow-hidden text-left"
+                  >
+                    <p className="text-xs text-foreground truncate whitespace-nowrap" style={{ fontWeight: 600 }}>
+                      {user.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate whitespace-nowrap">
+                      {user.email}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-64 mb-1">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="pb-3">
+                <div className="flex items-center gap-3">
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                      {initials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <Shield className="w-3.5 h-3.5 text-indigo-500" />
+                  <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                    {ROLE_LABELS[role] || role}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              {loggingOut ? "Signing out..." : "Sign out"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

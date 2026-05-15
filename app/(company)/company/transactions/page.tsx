@@ -5,9 +5,18 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { FileText, Filter, Upload, ChevronRight } from "lucide-react";
+import { FileText, Filter, Upload, ChevronRight, Download } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface Transaction {
   id: string;
@@ -150,6 +159,42 @@ export default function CompanyTransactionsPage() {
               {f.label}
             </button>
           ))}
+          <div className="ml-auto shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-accent transition-colors whitespace-nowrap">
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Export format</DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    params.set("format", "csv");
+                    if (activeFilter) params.set("status", activeFilter);
+                    window.open(`/api/transactions/export?${params}`);
+                  }}
+                >
+                  <FileText className="w-4 h-4" />
+                  Download CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    params.set("format", "tally");
+                    if (activeFilter) params.set("status", activeFilter);
+                    window.open(`/api/transactions/export?${params}`);
+                  }}
+                >
+                  <Download className="w-4 h-4" />
+                  Export for Tally
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Table header */}

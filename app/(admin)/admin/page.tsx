@@ -315,10 +315,8 @@ export default function AdminDashboard() {
                   <Power className="w-4 h-4 text-muted-foreground shrink-0" />
                 )}
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                  <DropdownMenuTrigger className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors outline-none">
+                    <MoreVertical className="w-4 h-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
@@ -359,8 +357,8 @@ export default function AdminDashboard() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+            <DialogClose className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
+              Cancel
             </DialogClose>
             <Button
               variant="destructive"
@@ -467,8 +465,8 @@ export default function AdminDashboard() {
             </div>
 
             <DialogFooter className="pt-2">
-              <DialogClose>
-                <Button type="button" variant="outline">Cancel</Button>
+              <DialogClose className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
+                Cancel
               </DialogClose>
               <Button type="submit" disabled={creating} className="gap-2">
                 {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
