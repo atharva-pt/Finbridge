@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PLATFORM_ADMIN
+  FIRM_ADMIN
+  FIRM_ACCOUNTANT
+  COMPANY_ADMIN
+  COMPANY_USER
+}
+
+enum TransactionStatus {
+  PENDING
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  NEEDS_INFO
+}
+
+enum ApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum DocumentType {
+  INVOICE
+  RECEIPT
+  BANK_STATEMENT
+  SALARY_REGISTER
+  LEDGER
+  OTHER
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  name           String
+  passwordHash   String
+  role           UserRole
+  approvalStatus ApprovalStatus @default(PENDING_APPROVAL)
+  avatarUrl      String?
+  isActive       Boolean        @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  firmId    String?
+  companyId String?
+
+  firm    AccountingFirm? @relation(fields: [firmId], references: [id])
+  company Company?        @relation(fields: [companyId], references: [id])
+
+  uploadedDocuments    Document[]    @relation("UploadedBy")
+  reviewedDocuments    Document[]    @relation("ReviewedBy")
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  assignedTransactions Transaction[] @relation("AssignedTo")
+}
+
+model AccountingFirm {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  email     String
+  phone     String?
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  plan      String   @default("starter")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  companies Company[]
+  documents Document[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  email     String
+  phone     String?
+  gstin     String?
+  pan       String?
+  address   String?
+  industry  String?
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  firmId String
+  firm   AccountingFirm @relation(fields: [firmId], references: [id])
+
+  users         User[]
+  documents     Document[]
+  paymentHeads  PaymentHead[]
+  reports       Report[]
+}
+
+model PaymentHead {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  category    String   // "INCOME" | "EXPENSE"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subHeads     PaymentSubHead[]
+  transactions Transaction[]
+
+  @@unique([companyId, name])
+}
+
+model PaymentSubHead {
+  id            String   @id @default(cuid())
+  paymentHeadId String
+  name          String
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  paymentHead  PaymentHead   @relation(fields: [paymentHeadId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([paymentHeadId, name])
+}
+
+model Report {
+  id           String   @id @default(cuid())
+  companyId    String
+  uploadedById String
+  title        String
+  reportType   String   // "MIS" | "CASH_FLOW" | "BALANCE_SHEET" | "P_AND_L" | "OTHER"
+  period       String?  // e.g. "March 2024", "Q1 2024"
+  description  String?
+  fileName     String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  uploadedAt   DateTime @default(now())
+
+  company    Company @relation(fields: [companyId], references: [id])
+}
+
+model Document {
+  id           String            @id @default(cuid())
+  fileName     String
+  originalName String
+  mimeType     String
+  fileSize     Int
+  filePath     String
+  documentType DocumentType      @default(INVOICE)
+  status       TransactionStatus @default(PENDING)
+  uploadedAt   DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  firmId       String
+  companyId    String
+  uploadedById String
+  reviewedById String?
+
+  firm       AccountingFirm @relation(fields: [firmId], references: [id])
+  company    Company        @relation(fields: [companyId], references: [id])
+  uploadedBy User           @relation("UploadedBy", fields: [uploadedById], references: [id])
+  reviewedBy User?          @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  transactions Transaction[]
+  auditLogs    AuditLog[]
+}
+
+model Transaction {
+  id         String            @id @default(cuid())
+  documentId String
+  status     TransactionStatus @default(PENDING)
+
+  vendorName    String?
+  vendorGstin   String?
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  dueDate       DateTime?
+  amount        Float?
+  taxAmount     Float?
+  totalAmount   Float?
+  currency      String  @default("INR")
+  description   String?
+  lineItems     Json?
+  paymentTerms  String?
+  bankDetails   Json?
+
+  aiExtracted     Boolean @default(false)
+  confidenceScore Float?
+  rawAiResponse   Json?
+  extractionNotes String?
+
+  reviewNotes     String?
+  rejectionReason String?
+  assignedToId    String?
+  reviewedAt      DateTime?
+  acceptedAt      DateTime?
+
+  // Categorization — chosen by accountant during review, optionally pre-filled from AI suggestion
+  paymentHeadId    String?
+  paymentSubHeadId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  document       Document        @relation(fields: [documentId], references: [id])
+  assignedTo     User?           @relation("AssignedTo", fields: [assignedToId], references: [id])
+  paymentHead    PaymentHead?    @relation(fields: [paymentHeadId], references: [id])
+  paymentSubHead PaymentSubHead? @relation(fields: [paymentSubHeadId], references: [id])
+  auditLogs      AuditLog[]
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  action        String
+  description   String
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  userId        String?
+  documentId    String?
+  transactionId String?
+
+  user        User?        @relation(fields: [userId], references: [id])
+  document    Document?    @relation(fields: [documentId], references: [id])
+  transaction Transaction? @relation(fields: [transactionId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  type      String   @default("info")
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}

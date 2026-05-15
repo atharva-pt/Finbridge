@@ -1,0 +1,31 @@
+import { NextResponse } from "next/server";
+
+const COOKIE_NAME = "finbridge_token";
+
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.set({
+    name: COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+    path: "/",
+  });
+  return response;
+}
+
+export async function POST() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.set({
+    name: COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+    path: "/",
+  });
+  return response;
+}
