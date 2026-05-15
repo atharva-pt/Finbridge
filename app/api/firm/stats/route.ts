@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const { session, error, status } = await validateActiveSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(error, { status });
     }
     if (!["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

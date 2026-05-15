@@ -5,12 +5,16 @@ import { LandingPage } from "@/components/landing/landing-page";
 export default async function HomePage() {
   const session = await getSession();
   if (session) {
-    // Check approval status before redirecting to dashboard
     const user = await getFullUser(session.userId);
-    if (user?.approvalStatus === "PENDING_APPROVAL") {
+
+    // User deleted or deactivated — send to login
+    if (!user || !user.isActive) {
+      redirect("/login");
+    }
+    if (user.approvalStatus === "PENDING_APPROVAL") {
       redirect("/pending-approval");
     }
-    if (user?.approvalStatus === "REJECTED") {
+    if (user.approvalStatus === "REJECTED") {
       redirect("/login?error=rejected");
     }
 

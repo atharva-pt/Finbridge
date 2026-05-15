@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const { session, error, status: authStatus } = await validateActiveSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(error, { status: authStatus });
     }
     if (!["COMPANY_ADMIN", "COMPANY_USER"].includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

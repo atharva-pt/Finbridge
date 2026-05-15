@@ -63,4 +63,47 @@ export function setAuthCookie(token: string) {
   };
 }
 
+/**
+ * Validates the current session user is still active and their org still exists.
+ * Returns null + a 401 response if invalid — caller should return the response immediately.
+ */
+export async function validateActiveSession() {
+  const session = await getSession();
+  if (!session) {
+    return { session: null, error: { error: "Unauthorized" }, status: 401 } as const;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { isActive: true, firmId: true, companyId: true },
+  });
+
+  if (!user || !user.isActive) {
+    return { session: null, error: { error: "Account deactivated or deleted" }, status: 401 } as const;
+  }
+
+  // Verify the org still exists
+  if (session.firmId) {
+    const firm = await prisma.accountingFirm.findUnique({
+      where: { id: session.firmId },
+      select: { isActive: true },
+    });
+    if (!firm || !firm.isActive) {
+      return { session: null, error: { error: "Firm no longer exists or is deactivated" }, status: 403 } as const;
+    }
+  }
+
+  if (session.companyId) {
+    const company = await prisma.company.findUnique({
+      where: { id: session.companyId },
+      select: { isActive: true },
+    });
+    if (!company || !company.isActive) {
+      return { session: null, error: { error: "Company no longer exists or is deactivated" }, status: 403 } as const;
+    }
+  }
+
+  return { session, error: null, status: 200 } as const;
+}
+
 export const COOKIE_NAME_EXPORT = COOKIE_NAME;

@@ -8,10 +8,12 @@ export default async function CompanyLayout({ children }: { children: React.Reac
   if (!session) redirect("/login");
   if (!["COMPANY_ADMIN", "COMPANY_USER"].includes(session.role)) redirect("/login");
 
-  // Block users who are not yet approved
+  // Validate user still exists, is active, and company still exists
   const fullUser = await getFullUser(session.userId);
-  if (fullUser?.approvalStatus === "PENDING_APPROVAL") redirect("/pending-approval");
-  if (fullUser?.approvalStatus === "REJECTED") redirect("/login?error=rejected");
+  if (!fullUser || !fullUser.isActive) redirect("/login");
+  if (!fullUser.company) redirect("/login");
+  if (fullUser.approvalStatus === "PENDING_APPROVAL") redirect("/pending-approval");
+  if (fullUser.approvalStatus === "REJECTED") redirect("/login?error=rejected");
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">

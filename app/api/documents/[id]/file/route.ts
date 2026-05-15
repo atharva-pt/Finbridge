@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -9,9 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const { session, error, status: authStatus } = await validateActiveSession();
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json(error, { status: authStatus });
     }
 
     const { id } = await params;

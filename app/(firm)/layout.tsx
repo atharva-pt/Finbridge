@@ -8,10 +8,12 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
   if (!session) redirect("/login");
   if (!["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(session.role)) redirect("/login");
 
-  // Block users who are not yet approved
+  // Validate user still exists, is active, and firm still exists
   const fullUser = await getFullUser(session.userId);
-  if (fullUser?.approvalStatus === "PENDING_APPROVAL") redirect("/pending-approval");
-  if (fullUser?.approvalStatus === "REJECTED") redirect("/login?error=rejected");
+  if (!fullUser || !fullUser.isActive) redirect("/login");
+  if (!fullUser.firm) redirect("/login");
+  if (fullUser.approvalStatus === "PENDING_APPROVAL") redirect("/pending-approval");
+  if (fullUser.approvalStatus === "REJECTED") redirect("/login?error=rejected");
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">

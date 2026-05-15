@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
         email: data.adminEmail,
         passwordHash: await bcrypt.hash(data.adminPassword, 12),
         role: "FIRM_ADMIN",
+        approvalStatus: "APPROVED",
         firmId: firm.id,
       },
     });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiLogger } from "@/lib/logger";
 
@@ -7,9 +7,9 @@ const log = apiLogger("/api/company/users");
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
+    const { session, error, status: authStatus } = await validateActiveSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(error, { status: authStatus });
     }
 
     const { searchParams } = new URL(req.url);

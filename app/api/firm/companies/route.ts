@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiLogger } from "@/lib/logger";
 import { getTemplateForIndustry } from "@/lib/payment-head-templates";
@@ -19,9 +19,9 @@ function slugify(input: string) {
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const { session, error, status } = await validateActiveSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(error, { status });
     }
     if (!["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -121,9 +121,9 @@ const createSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const { session, error, status } = await validateActiveSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(error, { status });
     }
     if (session.role !== "FIRM_ADMIN") {
       return NextResponse.json({ error: "Only firm admins can add companies" }, { status: 403 });

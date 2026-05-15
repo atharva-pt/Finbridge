@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/login", "/register", "/api/auth/login", "/api/auth/register"];
+const PUBLIC_PATHS = ["/login", "/register", "/pending-approval", "/api/auth/login", "/api/auth/register"];
 
 const ROLE_ROUTES: Record<string, string[]> = {
   PLATFORM_ADMIN: ["/admin"],

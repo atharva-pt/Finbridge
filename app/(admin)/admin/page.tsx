@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   Globe,
   ChevronRight,
+  Power,
+  Trash2,
+  MoreVertical,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +38,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 interface Firm {
@@ -104,6 +115,9 @@ export default function AdminDashboard() {
     adminEmail: "",
     adminPassword: "",
   });
+  const [confirmDelete, setConfirmDelete] = useState<Firm | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   async function loadFirms() {
     try {
@@ -144,6 +158,40 @@ export default function AdminDashboard() {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleToggleActive(firm: Firm) {
+    setToggling(firm.id);
+    try {
+      const res = await fetch(`/api/admin/firms/${firm.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !firm.isActive }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(firm.isActive ? `${firm.name} deactivated` : `${firm.name} reactivated`);
+      await loadFirms();
+    } catch {
+      toast.error("Failed to update firm");
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  async function handleDeleteFirm() {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/firms/${confirmDelete.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(`${confirmDelete.name} permanently deleted`);
+      setConfirmDelete(null);
+      await loadFirms();
+    } catch {
+      toast.error("Failed to delete firm");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -261,12 +309,71 @@ export default function AdminDashboard() {
                 <Badge className={cn("text-xs border capitalize", PLAN_COLORS[firm.plan] ?? PLAN_COLORS.starter)}>
                   {firm.plan}
                 </Badge>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                {firm.isActive ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                ) : (
+                  <Power className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => handleToggleActive(firm)}
+                      disabled={toggling === firm.id}
+                    >
+                      <Power className="w-4 h-4 mr-2" />
+                      {firm.isActive ? "Deactivate" : "Reactivate"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setConfirmDelete(firm)}
+                      className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Permanently
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </motion.div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Firm
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong className="text-foreground">{confirmDelete?.name}</strong> along
+              with all its users ({confirmDelete?._count.users}), companies ({confirmDelete?._count.companies}),
+              and associated documents. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteFirm}
+              disabled={deleting}
+              className="gap-2"
+            >
+              {deleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {deleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Onboard Dialog */}
       <Dialog open={showOnboard} onOpenChange={setShowOnboard}>
