@@ -18,10 +18,26 @@ export async function GET() {
 
     const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
 
-    const [totalDocuments, pendingReview, accepted, rejected, recentActivity, acceptedLast6Months, vendorTotals] = await Promise.all([
+    const [
+      totalDocuments,
+      totalTransactions,
+      pendingReview,
+      accepted,
+      rejected,
+      needsInfo,
+      recentActivity,
+      acceptedLast6Months,
+      vendorTotals,
+    ] = await Promise.all([
+      // Count actual documents (not transactions)
+      prisma.document.count({
+        where: { companyId: session.companyId },
+      }),
+      // Count all transactions
       prisma.transaction.count({
         where: { document: { companyId: session.companyId } },
       }),
+      // Pending = PENDING + UNDER_REVIEW
       prisma.transaction.count({
         where: {
           document: { companyId: session.companyId },
@@ -34,6 +50,10 @@ export async function GET() {
       prisma.transaction.count({
         where: { document: { companyId: session.companyId }, status: "REJECTED" },
       }),
+      prisma.transaction.count({
+        where: { document: { companyId: session.companyId }, status: "NEEDS_INFO" },
+      }),
+      // Recent activity — most recent 10 transactions
       prisma.transaction.findMany({
         where: { document: { companyId: session.companyId } },
         orderBy: { createdAt: "desc" },
@@ -55,12 +75,12 @@ export async function GET() {
         where: {
           status: "ACCEPTED",
           document: { companyId: session.companyId },
-          acceptedAt: { gte: sixMonthsAgo },
           totalAmount: { not: null },
+          createdAt: { gte: sixMonthsAgo },
         },
-        select: { acceptedAt: true, totalAmount: true },
+        select: { createdAt: true, acceptedAt: true, totalAmount: true },
       }),
-      // Top vendors by total amount (accepted transactions)
+      // Top vendors by total amount (accepted transactions only)
       prisma.transaction.findMany({
         where: {
           status: "ACCEPTED",
@@ -73,10 +93,12 @@ export async function GET() {
     ]);
 
     // Build monthlySpending: aggregate accepted amounts by month for last 6 months
+    // Use createdAt as fallback if acceptedAt is null
     const spendingByMonth = new Map<string, number>();
     for (const tx of acceptedLast6Months) {
-      if (tx.acceptedAt && tx.totalAmount) {
-        const key = format(new Date(tx.acceptedAt), "yyyy-MM");
+      const date = tx.acceptedAt ?? tx.createdAt;
+      if (date && tx.totalAmount) {
+        const key = format(new Date(date), "yyyy-MM");
         spendingByMonth.set(key, (spendingByMonth.get(key) ?? 0) + tx.totalAmount);
       }
     }
@@ -105,9 +127,11 @@ export async function GET() {
 
     return NextResponse.json({
       totalDocuments,
+      totalTransactions,
       pendingReview,
       accepted,
       rejected,
+      needsInfo,
       recentActivity,
       monthlySpending,
       topVendors,

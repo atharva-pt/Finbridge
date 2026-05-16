@@ -6,6 +6,92 @@ import { z } from "zod";
 
 const log = apiLogger("/api/admin/firms/[id]");
 
+// ---------- GET — firm detail with companies, users, doc/txn stats ----------
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "PLATFORM_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    const firm = await prisma.accountingFirm.findUnique({
+      where: { id },
+      include: {
+        companies: {
+          orderBy: { createdAt: "desc" },
+          include: { _count: { select: { documents: true } } },
+        },
+        users: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            isActive: true,
+            approvalStatus: true,
+            createdAt: true,
+          },
+        },
+        _count: { select: { companies: true, users: true, documents: true } },
+      },
+    });
+
+    if (!firm) {
+      return NextResponse.json({ error: "Firm not found" }, { status: 404 });
+    }
+
+    // Gather transaction status counts for all documents under this firm
+    const companyIds = firm.companies.map((c) => c.id);
+    let transactionStats = { PENDING: 0, UNDER_REVIEW: 0, ACCEPTED: 0, REJECTED: 0, NEEDS_INFO: 0, total: 0 };
+
+    if (companyIds.length > 0) {
+      const statusCounts = await prisma.transaction.groupBy({
+        by: ["status"],
+        where: { document: { firmId: id } },
+        _count: { _all: true },
+      });
+
+      let total = 0;
+      for (const row of statusCounts) {
+        transactionStats[row.status as keyof typeof transactionStats] = row._count._all;
+        total += row._count._all;
+      }
+      transactionStats.total = total;
+    }
+
+    return NextResponse.json({
+      firm: {
+        id: firm.id,
+        name: firm.name,
+        slug: firm.slug,
+        email: firm.email,
+        phone: firm.phone,
+        logoUrl: firm.logoUrl,
+        plan: firm.plan,
+        isActive: firm.isActive,
+        createdAt: firm.createdAt,
+      },
+      companies: firm.companies,
+      users: firm.users,
+      counts: {
+        companies: firm._count.companies,
+        users: firm._count.users,
+        documents: firm._count.documents,
+      },
+      transactionStats,
+    });
+  } catch (err) {
+    log.error({ err }, "GET firm detail failed");
+    return NextResponse.json({ error: "Failed to load firm" }, { status: 500 });
+  }
+}
+
 // ---------- PATCH — toggle active / update plan ----------
 const patchSchema = z.object({
   isActive: z.boolean().optional(),

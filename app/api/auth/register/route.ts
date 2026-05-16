@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, signToken, setAuthCookie } from "@/lib/auth";
 import { sendNewUserNotificationToAdmin } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
+
+const limiter = rateLimit({ interval: 60_000 });
 
 const schema = z.object({
   name: z.string().min(2),
@@ -47,6 +50,12 @@ async function uniqueSlug(base: string, table: "accountingFirm" | "company"): Pr
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
+    const { success } = await limiter.check(5, `register:${ip}`);
+    if (!success) {
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const body = await req.json();
     const data = schema.parse(body);
 

@@ -1,6 +1,13 @@
 import { NextRequest } from "next/server";
 import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const querySchema = z.object({
+  format: z.enum(["csv", "tally"]).default("csv"),
+  status: z.enum(["PENDING", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "NEEDS_INFO"]).optional(),
+  search: z.string().optional(),
+});
 
 function escapeCSV(value: string): string {
   if (!value) return "";
@@ -141,9 +148,17 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const format = searchParams.get("format") ?? "csv";
-    const statusParam = searchParams.get("status");
-    const searchQuery = searchParams.get("search");
+    const parsed = querySchema.safeParse({
+      format: searchParams.get("format") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+      search: searchParams.get("search") ?? undefined,
+    });
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+    }
+    const format = parsed.data.format;
+    const statusParam = parsed.data.status ?? null;
+    const searchQuery = parsed.data.search ?? null;
 
     const isFirm = ["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(session.role);
     const isCompany = ["COMPANY_ADMIN", "COMPANY_USER"].includes(session.role);

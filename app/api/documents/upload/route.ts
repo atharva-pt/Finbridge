@@ -6,8 +6,10 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { apiLogger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 
 const log = apiLogger("POST /api/documents/upload");
+const limiter = rateLimit({ interval: 60_000 });
 
 const ALLOWED_TYPES: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -22,6 +24,12 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json(error, { status: authStatus });
     }
+
+    const { success } = await limiter.check(20, `upload:${session.userId}`);
+    if (!success) {
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     if (!["COMPANY_ADMIN", "COMPANY_USER"].includes(session.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

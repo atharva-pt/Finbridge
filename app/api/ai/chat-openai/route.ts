@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { validateActiveSession } from "@/lib/auth";
 import { buildAiContext, AI_SYSTEM_SUFFIX } from "@/lib/ai-context";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const limiter = rateLimit({ interval: 60_000 });
 
 const bodySchema = z.object({
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       return NextResponse.json(error, { status: authStatus });
     }
 
-    const { success } = await limiter.check(30, `ai-chat:${session.userId}`);
+    const { success } = await limiter.check(30, `ai-chat-openai:${session.userId}`);
     if (!success) {
       return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
@@ -40,26 +40,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // If the client is requesting context only (for local model), return it
-    if (message === "__context_only__") {
-      return NextResponse.json({ context });
-    }
-
     const systemPrompt = context + AI_SYSTEM_SUFFIX;
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: message }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
+    const text = response.choices[0]?.message?.content ?? "";
 
     return NextResponse.json({ reply: text });
   } catch (err) {
-    console.error("AI Chat error:", err);
+    console.error("OpenAI Chat error:", err);
     return NextResponse.json(
       { error: "Failed to process your question. Please try again." },
       { status: 500 },

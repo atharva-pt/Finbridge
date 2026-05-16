@@ -19,14 +19,52 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { users: true, companies: true } },
+        users: {
+          where: { role: "FIRM_ADMIN" },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            approvalStatus: true,
+          },
+          take: 1,
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
-    const totalCompanies = await prisma.company.count();
-    const totalUsers = await prisma.user.count();
-    const totalDocuments = await prisma.document.count();
+    // Reshape: attach admin info at top level for convenience
+    const firmsWithAdmin = firms.map((f) => {
+      const { users, ...rest } = f;
+      const admin = users[0] ?? null;
+      return {
+        ...rest,
+        admin,
+        pendingApproval: admin?.approvalStatus === "PENDING_APPROVAL",
+      };
+    });
 
-    return NextResponse.json({ firms, stats: { totalCompanies, totalUsers, totalDocuments } });
+    const [totalCompanies, totalUsers, totalDocuments, pendingFirms] =
+      await Promise.all([
+        prisma.company.count(),
+        prisma.user.count(),
+        prisma.document.count(),
+        prisma.accountingFirm.count({
+          where: {
+            users: {
+              some: {
+                role: "FIRM_ADMIN",
+                approvalStatus: "PENDING_APPROVAL",
+              },
+            },
+          },
+        }),
+      ]);
+
+    return NextResponse.json({
+      firms: firmsWithAdmin,
+      stats: { totalCompanies, totalUsers, totalDocuments, pendingFirms },
+    });
   } catch (err) {
     log.error({ err }, "GET admin firms failed");
     return NextResponse.json({ error: "Failed to load firms" }, { status: 500 });

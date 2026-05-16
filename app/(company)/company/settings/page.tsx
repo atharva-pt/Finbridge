@@ -45,6 +45,8 @@ import {
   Loader2,
   Sparkles,
   Mail,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +134,14 @@ export default function CompanySettingsPage() {
   const [editingHead, setEditingHead] = useState<PaymentHead | null>(null);
   const [subHeadDialogFor, setSubHeadDialogFor] = useState<PaymentHead | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [inviteForm, setInviteForm] = useState({
+    name: "",
+    email: "",
+    role: "COMPANY_USER",
+  });
 
   const headForm = useForm<HeadFormData>({
     resolver: zodResolver(headSchema),
@@ -258,6 +268,43 @@ export default function CompanySettingsPage() {
       await loadHeads();
     } else {
       toast.error("Delete failed");
+    }
+  }
+
+  const COMPANY_INVITE_ROLES = [
+    { label: "Company User", value: "COMPANY_USER" },
+    { label: "Company Admin", value: "COMPANY_ADMIN" },
+  ];
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteForm.name || !inviteForm.email) {
+      toast.error("Name and email are required");
+      return;
+    }
+    setInviting(true);
+    setInviteSuccess(null);
+    try {
+      const res = await fetch("/api/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inviteForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send invite");
+      const roleLabel =
+        COMPANY_INVITE_ROLES.find((r) => r.value === inviteForm.role)?.label ??
+        inviteForm.role;
+      setInviteSuccess(
+        `Invite has been sent on email for the ${roleLabel} role to ${inviteForm.email}`
+      );
+      toast.success(data.message || "Invitation sent!");
+      setInviteForm({ name: "", email: "", role: "COMPANY_USER" });
+      loadUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setInviting(false);
     }
   }
 
@@ -512,8 +559,15 @@ export default function CompanySettingsPage() {
                   People with access to your FinBridge company workspace
                 </p>
               </div>
-              <Button variant="outline" onClick={() => toast.info("Invitations coming soon")}>
-                <Mail className="size-3.5" /> Invite
+              <Button
+                onClick={() => {
+                  setInviteSuccess(null);
+                  setShowInvite(true);
+                }}
+                className="gap-2"
+              >
+                <Plus className="size-3.5" />
+                Invite Member
               </Button>
             </div>
             {loading ? (
@@ -570,6 +624,108 @@ export default function CompanySettingsPage() {
               </div>
             )}
           </motion.div>
+
+          {/* Invite Member Dialog */}
+          <Dialog open={showInvite} onOpenChange={setShowInvite}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Send className="w-4 h-4 text-primary" />
+                  Invite Team Member
+                </DialogTitle>
+                <DialogDescription>
+                  Send an invitation to join your company on FinBridge. They will
+                  receive an email with login credentials.
+                </DialogDescription>
+              </DialogHeader>
+
+              {inviteSuccess ? (
+                <div className="py-6 text-center">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    Invitation Sent!
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    {inviteSuccess}
+                  </p>
+                  <div className="flex justify-center gap-3 mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowInvite(false)}
+                    >
+                      Close
+                    </Button>
+                    <Button onClick={() => setInviteSuccess(null)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      Invite Another
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleInvite} className="space-y-4 mt-2">
+                  <div className="space-y-1.5">
+                    <Label>Full Name *</Label>
+                    <Input
+                      value={inviteForm.name}
+                      onChange={(e) =>
+                        setInviteForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      placeholder="Ankit Patel"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Email Address *</Label>
+                    <Input
+                      type="email"
+                      value={inviteForm.email}
+                      onChange={(e) =>
+                        setInviteForm((f) => ({ ...f, email: e.target.value }))
+                      }
+                      placeholder="ankit@company.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Role</Label>
+                    <Select
+                      value={inviteForm.role}
+                      onValueChange={(v) =>
+                        setInviteForm((f) => ({ ...f, role: v ?? "COMPANY_USER" }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMPANY_INVITE_ROLES.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <DialogFooter className="pt-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 cursor-pointer">
+                      Cancel
+                    </DialogClose>
+                    <Button type="submit" disabled={inviting} className="gap-2">
+                      {inviting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )}
+                      {inviting ? "Sending…" : "Send Invite"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

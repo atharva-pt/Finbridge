@@ -95,7 +95,7 @@ function ConfidenceGauge({ score }: { score: number }) {
         </div>
       </div>
       <div>
-        <div className="text-sm font-semibold text-white">AI Confidence</div>
+        <div className="text-sm font-semibold text-foreground">AI Confidence</div>
         <div className="text-xs font-medium" style={{ color }}>{label} confidence</div>
         <div className="text-xs text-muted-foreground mt-0.5">Review all highlighted fields</div>
       </div>
@@ -170,9 +170,10 @@ function EditField({ label, value, fieldKey, lowConfidence, editable, onEdit, ed
         {editable && !editing && (
           <button
             onClick={() => setEditing(true)}
-            className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 transition-all"
+            className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 border border-indigo-500/20 transition-all"
+            title="Edit this field"
           >
-            <Edit3 className="w-3 h-3" />
+            <Edit3 className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
@@ -597,7 +598,7 @@ export default function CompanyTransactionDetailPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-foreground">
                     {"₹"}{tx.totalAmount.toLocaleString("en-IN")}
                   </div>
                 </div>

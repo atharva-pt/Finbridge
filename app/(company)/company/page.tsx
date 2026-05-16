@@ -22,6 +22,8 @@ import {
   Upload,
   ArrowRight,
   Sparkles,
+  AlertTriangle,
+  IndianRupee,
 } from "lucide-react";
 
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -33,9 +35,11 @@ import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 
 interface Stats {
   totalDocuments: number;
+  totalTransactions: number;
   pendingReview: number;
   accepted: number;
   rejected: number;
+  needsInfo: number;
   recentActivity: Array<{
     id: string;
     documentId?: string;
@@ -179,16 +183,16 @@ export default function CompanyDashboard() {
       </motion.div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
-          title="Total Documents"
-          value={loading ? "—" : stats?.totalDocuments ?? 0}
+          title="Total Transactions"
+          value={loading ? "—" : stats?.totalTransactions ?? 0}
           icon={FileText}
           color="indigo"
           index={0}
         />
         <KpiCard
-          title="Pending Review"
+          title="Pending / In Review"
           value={loading ? "—" : stats?.pendingReview ?? 0}
           icon={Clock}
           color="amber"
@@ -202,11 +206,18 @@ export default function CompanyDashboard() {
           index={2}
         />
         <KpiCard
+          title="Needs Info"
+          value={loading ? "—" : stats?.needsInfo ?? 0}
+          icon={AlertTriangle}
+          color="amber"
+          index={3}
+        />
+        <KpiCard
           title="Rejected"
           value={loading ? "—" : stats?.rejected ?? 0}
           icon={XCircle}
           color="red"
-          index={3}
+          index={4}
         />
       </div>
 

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { subDays, startOfDay } from "date-fns";
+import { z } from "zod";
+
+const querySchema = z.object({
+  period: z.enum(["last7", "last30", "last90", "all"]).default("last30"),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,7 +14,13 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json(error, { status });
 
     const url = new URL(req.url);
-    const period = url.searchParams.get("period") || "last30";
+    const parsed = querySchema.safeParse({
+      period: url.searchParams.get("period") ?? undefined,
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+    }
+    const { period } = parsed.data;
 
     const now = new Date();
     let startDate: Date;

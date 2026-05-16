@@ -243,6 +243,14 @@ export default function FirmReportsPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
+              onClick={() => window.open("/api/reports/export-csv?period=last30")}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download CSV Report
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => window.open("/firm/reports/generate?period=last30", "_blank")}
               className="gap-2"
             >

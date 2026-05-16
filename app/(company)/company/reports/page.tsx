@@ -153,14 +153,24 @@ export default function CompanyReportsPage() {
         title="Reports"
         subtitle="Financial reports shared by your accounting firm"
         action={
-          <Button
-            variant="outline"
-            onClick={() => window.open("/company/reports/generate?period=last30", "_blank")}
-            className="gap-2"
-          >
-            <FileText className="w-4 h-4" />
-            Generate PDF Report
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => window.open("/api/reports/export-csv?period=last30")}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download CSV Report
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.open("/company/reports/generate?period=last30", "_blank")}
+              className="gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Generate PDF Report
+            </Button>
+          </div>
         }
       />
 

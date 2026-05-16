@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const querySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  action: z.string().optional(),
+  userId: z.string().optional(),
+});
 
 // GET /api/admin/audit-logs — paginated audit logs with filters
 export async function GET(req: NextRequest) {
@@ -16,19 +24,25 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
-    const action = searchParams.get("action") || "";
-    const userId = searchParams.get("userId") || "";
+    const parsed = querySchema.safeParse({
+      page: searchParams.get("page") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
+      action: searchParams.get("action") ?? undefined,
+      userId: searchParams.get("userId") ?? undefined,
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+    }
+    const { page, limit, action, userId } = parsed.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: Record<string, any> = {};
 
-    if (action) {
+    if (action !== undefined) {
       where.action = action;
     }
 
-    if (userId) {
+    if (userId !== undefined) {
       where.userId = userId;
     }
 

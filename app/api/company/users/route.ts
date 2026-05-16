@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateActiveSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiLogger } from "@/lib/logger";
+import { z } from "zod";
+
+const querySchema = z.object({
+  companyId: z.string().optional(),
+});
 
 const log = apiLogger("/api/company/users");
 
@@ -13,7 +18,13 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const companyIdParam = searchParams.get("companyId");
+    const parsed = querySchema.safeParse({
+      companyId: searchParams.get("companyId") ?? undefined,
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+    }
+    const companyIdParam = parsed.data.companyId ?? null;
 
     const isFirm = ["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(session.role);
     const isCompany = ["COMPANY_ADMIN", "COMPANY_USER"].includes(session.role);

@@ -4,7 +4,14 @@ import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import type { UserRole } from ".prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET || "finbridge-dev-secret-change-in-prod";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
+const JWT_SECRET: string = getJwtSecret();
 const COOKIE_NAME = "finbridge_token";
 
 export interface JWTPayload {

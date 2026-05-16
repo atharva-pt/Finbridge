@@ -17,6 +17,9 @@ import {
   Trash2,
   MoreVertical,
   AlertTriangle,
+  Clock,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +48,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+interface FirmAdmin {
+  id: string;
+  name: string;
+  email: string;
+  approvalStatus: string;
+}
 
 interface Firm {
   id: string;
@@ -57,12 +68,15 @@ interface Firm {
   isActive: boolean;
   createdAt: string;
   _count: { users: number; companies: number };
+  admin: FirmAdmin | null;
+  pendingApproval: boolean;
 }
 
 interface PlatformStats {
   totalCompanies: number;
   totalUsers: number;
   totalDocuments: number;
+  pendingFirms: number;
 }
 
 const PLAN_COLORS: Record<string, string> = {
@@ -118,6 +132,7 @@ export default function AdminDashboard() {
   const [confirmDelete, setConfirmDelete] = useState<Firm | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
 
   async function loadFirms() {
     try {
@@ -195,6 +210,35 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleFirmApproval(firm: Firm, action: "APPROVED" | "REJECTED") {
+    if (!firm.admin) return;
+    setApproving(firm.id);
+    try {
+      const res = await fetch("/api/admin/users/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: firm.admin.id,
+          action,
+          role: "FIRM_ADMIN",
+          firmId: firm.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast.success(
+        action === "APPROVED"
+          ? `${firm.name} approved successfully`
+          : `${firm.name} registration rejected`
+      );
+      await loadFirms();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setApproving(null);
+    }
+  }
+
   return (
     <div>
       {/* Header */}
@@ -216,7 +260,7 @@ export default function AdminDashboard() {
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard
           icon={Building2}
           label="Accounting Firms"
@@ -225,25 +269,32 @@ export default function AdminDashboard() {
           index={0}
         />
         <StatCard
+          icon={Clock}
+          label="Pending Approval"
+          value={loading ? "—" : (stats?.pendingFirms ?? 0)}
+          color="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          index={1}
+        />
+        <StatCard
           icon={Globe}
           label="Client Companies"
           value={loading ? "—" : (stats?.totalCompanies ?? 0)}
           color="bg-blue-500/10 text-blue-600 dark:text-blue-400"
-          index={1}
+          index={2}
         />
         <StatCard
           icon={Users}
           label="Total Users"
           value={loading ? "—" : (stats?.totalUsers ?? 0)}
           color="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-          index={2}
+          index={3}
         />
         <StatCard
           icon={FileText}
           label="Documents Processed"
           value={loading ? "—" : (stats?.totalDocuments ?? 0)}
           color="bg-amber-500/10 text-amber-600 dark:text-amber-400"
-          index={3}
+          index={4}
         />
       </div>
 
@@ -280,62 +331,117 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: i * 0.05 }}
-              className="bg-card border border-border rounded-2xl p-5 card-shadow flex items-center gap-4"
+              className={cn(
+                "bg-card border rounded-2xl p-5 card-shadow",
+                firm.pendingApproval
+                  ? "border-amber-500/40 ring-1 ring-amber-500/20"
+                  : "border-border"
+              )}
             >
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow">
-                {firm.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{firm.name}</p>
-                  {!firm.isActive && (
-                    <Badge variant="secondary" className="text-[10px] h-4">Inactive</Badge>
+              <div className="flex items-center gap-4">
+                <Link
+                  href={`/admin/firms/${firm.id}`}
+                  className="flex items-center gap-4 flex-1 min-w-0"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow">
+                    {firm.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{firm.name}</p>
+                      {firm.pendingApproval && (
+                        <Badge className="text-[10px] h-4 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                          Pending Approval
+                        </Badge>
+                      )}
+                      {!firm.isActive && !firm.pendingApproval && (
+                        <Badge variant="secondary" className="text-[10px] h-4">Inactive</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {firm.email}
+                      {firm.admin && firm.pendingApproval && (
+                        <span className="ml-2 text-amber-600 dark:text-amber-400">
+                          · Admin: {firm.admin.name} ({firm.admin.email})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" />
+                      {firm._count.users} users
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5" />
+                      {firm._count.companies} companies
+                    </span>
+                    <span>{format(new Date(firm.createdAt), "MMM d, yyyy")}</span>
+                  </div>
+                  <Badge className={cn("text-xs border capitalize", PLAN_COLORS[firm.plan] ?? PLAN_COLORS.starter)}>
+                    {firm.plan}
+                  </Badge>
+                  {!firm.pendingApproval && (
+                    firm.isActive ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    ) : (
+                      <Power className="w-4 h-4 text-muted-foreground shrink-0" />
+                    )
                   )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{firm.email}</p>
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" />
-                    {firm._count.users} users
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Building2 className="w-3.5 h-3.5" />
-                    {firm._count.companies} companies
-                  </span>
-                  <span>{format(new Date(firm.createdAt), "MMM d, yyyy")}</span>
-                </div>
-                <Badge className={cn("text-xs border capitalize", PLAN_COLORS[firm.plan] ?? PLAN_COLORS.starter)}>
-                  {firm.plan}
-                </Badge>
-                {firm.isActive ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                ) : (
-                  <Power className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                </Link>
+
+                {/* Approve / Reject buttons for pending firms */}
+                {firm.pendingApproval && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleFirmApproval(firm, "APPROVED")}
+                      disabled={approving === firm.id}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                    >
+                      {approving === firm.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <UserCheck className="w-3.5 h-3.5" />
+                      )}
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleFirmApproval(firm, "REJECTED")}
+                      disabled={approving === firm.id}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                      Reject
+                    </button>
+                  </div>
                 )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors outline-none">
-                    <MoreVertical className="w-4 h-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => handleToggleActive(firm)}
-                      disabled={toggling === firm.id}
-                    >
-                      <Power className="w-4 h-4 mr-2" />
-                      {firm.isActive ? "Deactivate" : "Reactivate"}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => setConfirmDelete(firm)}
-                      className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Permanently
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+
+                {/* Actions dropdown */}
+                <div className="flex items-center shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors outline-none">
+                      <MoreVertical className="w-4 h-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleToggleActive(firm)}
+                        disabled={toggling === firm.id}
+                      >
+                        <Power className="w-4 h-4 mr-2" />
+                        {firm.isActive ? "Deactivate" : "Reactivate"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setConfirmDelete(firm)}
+                        className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Permanently
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </motion.div>
           ))}

@@ -109,7 +109,7 @@ function ConfidenceGauge({ score }: { score: number }) {
         </div>
       </div>
       <div>
-        <div className="text-sm font-semibold text-white">AI Confidence</div>
+        <div className="text-sm font-semibold text-foreground">AI Confidence</div>
         <div className="text-xs font-medium" style={{ color }}>{label} confidence</div>
         <div className="text-xs text-muted-foreground mt-0.5">Review all highlighted fields</div>
       </div>
@@ -719,7 +719,7 @@ export default function TransactionReviewPage() {
                     value={paymentSubHeadId}
                     onChange={(e) => setPaymentSubHeadId(e.target.value)}
                     disabled={!selectedHead || selectedHead.subHeads.length === 0}
-                    className="w-full bg-muted/50 border border-border hover:border-primary/20 focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/15 rounded-lg px-3 py-2 text-sm text-white outline-none transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full bg-muted/50 border border-border hover:border-primary/20 focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/15 rounded-lg px-3 py-2 text-sm text-foreground outline-none transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <option value="">None</option>
                     {selectedHead?.subHeads.map((s) => (
@@ -760,7 +760,7 @@ export default function TransactionReviewPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
-                    <div className="text-2xl font-bold text-white">
+                    <div className="text-2xl font-bold text-foreground">
                       ₹{tx.totalAmount.toLocaleString("en-IN")}
                     </div>
                   </div>

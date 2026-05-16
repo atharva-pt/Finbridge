@@ -11,13 +11,12 @@ import {
   User,
   Loader2,
   Cloud,
-  Cpu,
+  Zap,
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useLocalChat } from "@/hooks/use-local-chat";
 
-type AiMode = "cloud" | "local";
+type AiMode = "claude" | "openai";
 
 interface Message {
   id: string;
@@ -39,12 +38,10 @@ export function AiChatPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<AiMode>("cloud");
+  const [mode, setMode] = useState<AiMode>("claude");
   const [showModeMenu, setShowModeMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const localChat = useLocalChat();
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,7 +58,7 @@ export function AiChatPanel() {
   }, [isOpen]);
 
   // Send via Claude API
-  const sendCloudMessage = async (text: string): Promise<string> => {
+  const sendClaudeMessage = async (text: string): Promise<string> => {
     const res = await fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -77,25 +74,21 @@ export function AiChatPanel() {
     return data.reply;
   };
 
-  // Send via local model
-  const sendLocalMessage = async (text: string): Promise<string> => {
-    // Fetch data context for the local model
-    let context = "";
-    try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "__context_only__" }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        context = data.context || "";
-      }
-    } catch {
-      // If context fetch fails, continue without it
+  // Send via OpenAI API
+  const sendOpenAIMessage = async (text: string): Promise<string> => {
+    const res = await fetch("/api/ai/chat-openai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to get response");
     }
 
-    return localChat.generate(text, context);
+    const data = await res.json();
+    return data.reply;
   };
 
   const sendMessage = async (text: string) => {
@@ -115,10 +108,10 @@ export function AiChatPanel() {
     try {
       let reply: string;
 
-      if (mode === "local" && localChat.isReady) {
-        reply = await sendLocalMessage(text.trim());
+      if (mode === "openai") {
+        reply = await sendOpenAIMessage(text.trim());
       } else {
-        reply = await sendCloudMessage(text.trim());
+        reply = await sendClaudeMessage(text.trim());
       }
 
       const aiMessage: Message = {
@@ -126,7 +119,7 @@ export function AiChatPanel() {
         role: "assistant",
         content: reply,
         timestamp: new Date(),
-        mode: mode === "local" && localChat.isReady ? "local" : "cloud",
+        mode,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -151,20 +144,16 @@ export function AiChatPanel() {
   };
 
   const MODEL_INFO: Record<AiMode, { label: string; sublabel: string; icon: typeof Cloud; color: string }> = {
-    cloud: {
+    claude: {
       label: "Claude AI",
-      sublabel: "Anthropic Cloud",
+      sublabel: "Anthropic",
       icon: Cloud,
       color: "text-violet-500",
     },
-    local: {
-      label: "SmolLM2",
-      sublabel: localChat.isReady
-        ? "Running Locally"
-        : localChat.isLoading
-          ? `Downloading ${localChat.progress}%`
-          : "Not Available",
-      icon: Cpu,
+    openai: {
+      label: "GPT-4o Mini",
+      sublabel: "OpenAI",
+      icon: Zap,
       color: "text-emerald-500",
     },
   };
@@ -231,62 +220,40 @@ export function AiChatPanel() {
                           exit={{ opacity: 0, y: -4 }}
                           className="absolute top-5 left-0 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden"
                         >
-                          {/* Cloud option */}
+                          {/* Claude option */}
                           <button
-                            onClick={() => { setMode("cloud"); setShowModeMenu(false); }}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${mode === "cloud" ? "bg-violet-50 dark:bg-violet-500/10" : ""}`}
+                            onClick={() => { setMode("claude"); setShowModeMenu(false); }}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${mode === "claude" ? "bg-violet-50 dark:bg-violet-500/10" : ""}`}
                           >
                             <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0">
                               <Cloud className="w-4 h-4 text-violet-500" />
                             </div>
                             <div className="min-w-0">
                               <p className="text-xs font-semibold text-gray-900 dark:text-white">Claude AI</p>
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400">Anthropic Cloud · Most capable</p>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">Anthropic · claude-sonnet-4-20250514</p>
                             </div>
-                            {mode === "cloud" && <span className="ml-auto text-violet-500 text-xs">●</span>}
+                            {mode === "claude" && <span className="ml-auto text-violet-500 text-xs">●</span>}
                           </button>
 
-                          {/* Local option */}
+                          {/* OpenAI option */}
                           <button
-                            onClick={() => {
-                              if (localChat.isReady) {
-                                setMode("local");
-                                setShowModeMenu(false);
-                              } else if (localChat.isLoading) {
-                                toast.info(`Model downloading... ${localChat.progress}%`);
-                              }
-                            }}
-                            disabled={!localChat.isReady && !localChat.isLoading}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-40 ${mode === "local" ? "bg-emerald-50 dark:bg-emerald-500/10" : ""}`}
+                            onClick={() => { setMode("openai"); setShowModeMenu(false); }}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${mode === "openai" ? "bg-emerald-50 dark:bg-emerald-500/10" : ""}`}
                           >
                             <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
-                              <Cpu className="w-4 h-4 text-emerald-500" />
+                              <Zap className="w-4 h-4 text-emerald-500" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-                                SmolLM2-360M
-                                <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                                  OPEN SOURCE
-                                </span>
-                              </p>
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                {localChat.isReady
-                                  ? "HuggingFace · Runs in browser"
-                                  : localChat.isLoading
-                                    ? `Downloading... ${localChat.progress}%`
-                                    : "Not available"}
-                              </p>
+                              <p className="text-xs font-semibold text-gray-900 dark:text-white">GPT-4o Mini</p>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">OpenAI · Fast & affordable</p>
                             </div>
-                            {mode === "local" && <span className="ml-auto text-emerald-500 text-xs">●</span>}
-                            {localChat.isLoading && (
-                              <Loader2 className="w-3 h-3 text-emerald-500 animate-spin ml-auto shrink-0" />
-                            )}
+                            {mode === "openai" && <span className="ml-auto text-emerald-500 text-xs">●</span>}
                           </button>
 
                           {/* Info footer */}
                           <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
                             <p className="text-[9px] text-gray-400">
-                              Local model runs entirely on your device — no data sent to any server.
+                              Multi-model AI — switch between providers for the best response.
                             </p>
                           </div>
                         </motion.div>
@@ -357,15 +324,15 @@ export function AiChatPanel() {
                         {/* Model badge on AI messages */}
                         {msg.role === "assistant" && msg.mode && (
                           <div className="mt-1 flex items-center gap-1">
-                            {msg.mode === "local" ? (
+                            {msg.mode === "openai" ? (
                               <>
-                                <Cpu className="w-2.5 h-2.5 text-emerald-500" />
-                                <span className="text-[9px] text-emerald-600 dark:text-emerald-400">SmolLM2 · Local</span>
+                                <Zap className="w-2.5 h-2.5 text-emerald-500" />
+                                <span className="text-[9px] text-emerald-600 dark:text-emerald-400">GPT-4o Mini · OpenAI</span>
                               </>
                             ) : (
                               <>
                                 <Cloud className="w-2.5 h-2.5 text-violet-500" />
-                                <span className="text-[9px] text-violet-600 dark:text-violet-400">Claude · Cloud</span>
+                                <span className="text-[9px] text-violet-600 dark:text-violet-400">Claude · Anthropic</span>
                               </>
                             )}
                           </div>
@@ -395,7 +362,7 @@ export function AiChatPanel() {
                           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} className="h-2 w-2 rounded-full bg-indigo-400" />
                           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} className="h-2 w-2 rounded-full bg-indigo-400" />
                           <span className="ml-2 text-[10px] text-gray-400">
-                            {mode === "local" && localChat.isReady ? "Thinking locally..." : "Thinking..."}
+                            {mode === "openai" ? "GPT is thinking..." : "Claude is thinking..."}
                           </span>
                         </div>
                       </div>
@@ -432,14 +399,7 @@ export function AiChatPanel() {
                 </button>
               </form>
               <p className="mt-2 text-center text-[10px] text-gray-400 dark:text-gray-500">
-                {mode === "local" && localChat.isReady ? (
-                  <>
-                    <Cpu className="w-2.5 h-2.5 inline mr-0.5" />
-                    Running on-device · No data leaves your browser
-                  </>
-                ) : (
-                  <>Powered by Claude AI · Answers based on your real data</>
-                )}
+                Powered by {mode === "openai" ? "OpenAI GPT-4o Mini" : "Claude AI"} · Answers based on your real data
               </p>
             </div>
           </motion.div>

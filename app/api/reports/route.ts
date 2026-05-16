@@ -5,6 +5,11 @@ import { apiLogger } from "@/lib/logger";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+
+const querySchema = z.object({
+  companyId: z.string().optional(),
+});
 
 const log = apiLogger("/api/reports");
 
@@ -28,7 +33,13 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const companyIdParam = searchParams.get("companyId");
+    const parsed = querySchema.safeParse({
+      companyId: searchParams.get("companyId") ?? undefined,
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+    }
+    const companyIdParam = parsed.data.companyId ?? null;
 
     const isFirm = ["FIRM_ADMIN", "FIRM_ACCOUNTANT"].includes(session.role);
     const isCompany = ["COMPANY_ADMIN", "COMPANY_USER"].includes(session.role);

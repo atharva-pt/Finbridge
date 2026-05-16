@@ -26,31 +26,31 @@ function setCache(key: string, data: unknown) {
 const DEFAULT_INSIGHTS = [
   {
     icon: "sparkle",
-    title: "Get Started Today",
+    title: "Upload Your First Invoice",
     description:
-      "Upload your first invoice to unlock AI-powered financial insights and analytics.",
+      "Upload an invoice or receipt to see AI-powered data extraction with confidence scoring in action.",
     type: "neutral",
-  },
-  {
-    icon: "trend-up",
-    title: "Track Spending Trends",
-    description:
-      "Once you have transactions, we'll analyze spending patterns and highlight key trends.",
-    type: "positive",
   },
   {
     icon: "check",
-    title: "Automate Reviews",
+    title: "AI Extracts Data Instantly",
     description:
-      "AI extraction saves hours of manual data entry — start by uploading a document.",
+      "Claude Vision reads vendor names, amounts, dates, and line items — saving hours of manual entry.",
     type: "positive",
   },
   {
-    icon: "clock",
-    title: "Real-Time Monitoring",
+    icon: "trend-up",
+    title: "Multi-Model AI Chat",
     description:
-      "As data flows in, you'll see live alerts on anomalies, due dates, and approval bottlenecks.",
-    type: "neutral",
+      "Ask questions in natural language using Claude or GPT-4o Mini — both have access to your live data.",
+    type: "positive",
+  },
+  {
+    icon: "alert",
+    title: "Anomaly Detection Active",
+    description:
+      "Duplicate invoices, unusual amounts, and missing GST are automatically flagged during review.",
+    type: "warning",
   },
 ];
 
