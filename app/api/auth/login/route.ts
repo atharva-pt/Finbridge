@@ -3,8 +3,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, signToken, setAuthCookie } from "@/lib/auth";
 import { apiLogger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 
 const log = apiLogger("POST /api/auth/login");
+const limiter = rateLimit({ interval: 60_000 });
 
 const schema = z.object({
   email: z.string().email(),
@@ -21,6 +23,16 @@ const ROLE_REDIRECTS: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: 10 requests per minute per IP
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const { success } = await limiter.check(10, `login:${ip}`);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many login attempts. Please try again in a minute." },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
+    }
+
     const body = await req.json();
     const { email, password } = schema.parse(body);
 

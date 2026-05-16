@@ -494,25 +494,37 @@ export default function TransactionReviewPage() {
                   <img
                     src={`/api/documents/${tx.document.id}/file`}
                     alt={tx.document.originalName}
-                    className="w-full rounded-xl object-contain max-h-80 bg-black/20"
+                    className="w-full rounded-xl object-contain max-h-[500px] bg-black/20"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
                 </div>
+              ) : tx.document.mimeType === "application/pdf" ? (
+                <div className="p-4">
+                  <iframe
+                    src={`/api/documents/${tx.document.id}/file`}
+                    className="w-full h-[600px] rounded-xl border border-border bg-white"
+                    title={tx.document.originalName}
+                  />
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mb-4">
                     <FileText className="w-8 h-8 text-muted-foreground" />
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {tx.document.mimeType === "application/pdf"
-                      ? "PDF Document"
-                      : "Document"}
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {tx.document.originalName}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Preview not available. Review extracted data on the right.
-                  </p>
+                  <a
+                    href={`/api/documents/${tx.document.id}/file`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Download & View Document
+                  </a>
                 </div>
               )}
             </motion.div>

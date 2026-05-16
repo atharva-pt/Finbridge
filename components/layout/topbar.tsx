@@ -1,6 +1,7 @@
 "use client";
 
 import { NotificationsBell } from "./notifications-bell";
+import { LocalAiBadge } from "@/components/ai/local-ai-badge";
 import { Search } from "lucide-react";
 
 interface TopbarProps {
@@ -26,6 +27,7 @@ export function Topbar({ showSearch = true }: TopbarProps) {
       )}
 
       <div className="flex items-center gap-1">
+        <LocalAiBadge />
         <NotificationsBell />
       </div>
     </div>

@@ -2,6 +2,7 @@ import { getSession, getFullUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { AiChatPanel } from "@/components/ai/chat-panel";
 
 export default async function FirmLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -25,6 +26,7 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
         <Topbar />
         <div className="flex-1 p-6 lg:p-8">{children}</div>
       </main>
+      <AiChatPanel />
     </div>
   );
 }

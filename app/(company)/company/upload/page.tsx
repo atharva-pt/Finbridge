@@ -18,6 +18,7 @@ import {
   Send,
   Loader2,
   Brain,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -198,6 +199,7 @@ function EditableField({ label, value, lowConfidence, onSave }: EditableFieldPro
 
 export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [docType, setDocType] = useState<DocumentType>("INVOICE");
   const [uploadStep, setUploadStep] = useState<UploadStep>("idle");
   const [result, setResult] = useState<ExtractionResult | null>(null);
@@ -209,10 +211,14 @@ export default function UploadPage() {
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) {
       setSelectedFile(accepted[0]);
+      // Create preview URL for the uploaded file
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl(URL.createObjectURL(accepted[0]));
       setResult(null);
       setUploadStep("idle");
       setSubmitted(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -282,6 +288,8 @@ export default function UploadPage() {
   }
 
   function handleReset() {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setFilePreviewUrl(null);
     setSelectedFile(null);
     setResult(null);
     setUploadStep("idle");
@@ -704,6 +712,38 @@ export default function UploadPage() {
 
                   {/* Summary + actions sidebar */}
                   <div className="space-y-4">
+                    {/* Document Preview */}
+                    {filePreviewUrl && selectedFile && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.15 }}
+                        className="bg-card border border-border rounded-2xl overflow-hidden"
+                      >
+                        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                          <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Document Preview
+                          </h3>
+                        </div>
+                        <div className="p-2">
+                          {selectedFile.type === "application/pdf" ? (
+                            <iframe
+                              src={filePreviewUrl}
+                              className="w-full h-[320px] rounded-lg border border-border bg-white"
+                              title="Uploaded document preview"
+                            />
+                          ) : (
+                            <img
+                              src={filePreviewUrl}
+                              alt="Uploaded document"
+                              className="w-full rounded-lg border border-border object-contain max-h-[320px]"
+                            />
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+
                     {ext.totalAmount && (
                       <motion.div
                         initial={{ opacity: 0, x: 12 }}

@@ -261,7 +261,7 @@ export default function CompanyTransactionsPage() {
                 {/* Action */}
                 <div>
                   <Link
-                    href={`/firm/transactions/${tx.id}`}
+                    href={`/company/transactions/${tx.id}`}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                   >
                     View <ChevronRight className="w-3 h-3" />

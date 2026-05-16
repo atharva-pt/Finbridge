@@ -7,9 +7,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { FileText, Search, ChevronRight, Download } from "lucide-react";
+import { FileText, Search, ChevronRight, Download, Brain } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { SmartSearch } from "@/components/ai/smart-search";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -103,6 +104,8 @@ export default function FirmTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [aiSearch, setAiSearch] = useState(false);
+  const [aiResults, setAiResults] = useState<Transaction[] | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -119,6 +122,8 @@ export default function FirmTransactionsPage() {
   }, [activeFilter]);
 
   const filtered = useMemo(() => {
+    // If AI search is active and has results, use those
+    if (aiSearch && aiResults) return aiResults;
     if (!search) return transactions;
     const q = search.toLowerCase();
     return transactions.filter(
@@ -127,7 +132,7 @@ export default function FirmTransactionsPage() {
         tx.document.company?.name?.toLowerCase().includes(q) ||
         tx.vendorName?.toLowerCase().includes(q)
     );
-  }, [transactions, search]);
+  }, [transactions, search, aiSearch, aiResults]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -152,15 +157,41 @@ export default function FirmTransactionsPage() {
         <div className="sticky top-14 z-10 bg-card/95 backdrop-blur border-b border-border">
           <div className="px-5 py-4 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by company, vendor, or document name…"
-                  className="w-full bg-muted/50 border border-border hover:border-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/15 rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-all"
-                />
+              <div className="flex-1">
+                {aiSearch ? (
+                  <SmartSearch
+                    items={transactions.map((tx) => ({
+                      ...tx,
+                      text: [tx.vendorName, tx.document.company.name, tx.document.originalName, tx.document.documentType].filter(Boolean).join(" "),
+                    }))}
+                    onResults={(results) => setAiResults(results as unknown as Transaction[])}
+                    onClear={() => setAiResults(null)}
+                    placeholder="AI search — try 'software subscriptions' or 'large invoices'"
+                  />
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search by company, vendor, or document name…"
+                      className="w-full bg-muted/50 border border-border hover:border-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/15 rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-all"
+                    />
+                  </div>
+                )}
               </div>
+              <button
+                onClick={() => { setAiSearch(!aiSearch); setAiResults(null); setSearch(""); }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2.5 rounded-xl border transition-all whitespace-nowrap",
+                  aiSearch
+                    ? "bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+                    : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                )}
+              >
+                <Brain className="w-3.5 h-3.5" />
+                AI Search
+              </button>
               <DropdownMenu>
                 <DropdownMenuTrigger className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl border border-border bg-background text-foreground hover:bg-accent transition-colors whitespace-nowrap">
                   <Download className="w-4 h-4" />

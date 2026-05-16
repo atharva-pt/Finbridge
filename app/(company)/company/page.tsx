@@ -28,6 +28,8 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { AiInsights } from "@/components/dashboard/ai-insights";
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 
 interface Stats {
   totalDocuments: number;
@@ -335,6 +337,9 @@ export default function CompanyDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* AI Insights */}
+      <AiInsights />
 
       {/* Recent documents table */}
       <motion.div

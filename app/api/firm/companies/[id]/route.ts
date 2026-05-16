@@ -24,12 +24,31 @@ export async function GET(
 
     const { id } = await params;
 
-    const company = await prisma.company.findUnique({
+    // Look up by ID first, then by slug
+    let company = await prisma.company.findUnique({
       where: { id },
       include: {
+        users: {
+          select: { id: true, name: true, email: true, role: true, isActive: true, avatarUrl: true },
+          orderBy: { name: "asc" },
+        },
         _count: { select: { documents: true, users: true, reports: true, paymentHeads: true } },
       },
     });
+
+    if (!company) {
+      // Try slug lookup
+      company = await prisma.company.findFirst({
+        where: { slug: id, firmId: session.firmId },
+        include: {
+          users: {
+            select: { id: true, name: true, email: true, role: true, isActive: true, avatarUrl: true },
+            orderBy: { name: "asc" },
+          },
+          _count: { select: { documents: true, users: true, reports: true, paymentHeads: true } },
+        },
+      });
+    }
 
     if (!company) {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -38,61 +57,80 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Aggregate transaction stats
-    const docs = await prisma.document.findMany({
-      where: { companyId: id },
-      select: {
-        id: true,
-        transactions: { select: { status: true, totalAmount: true, acceptedAt: true } },
-      },
-    });
+    // Documents by status and type
+    const [documentsByStatus, documentsByType, recentTransactions, spendingAgg] = await Promise.all([
+      prisma.document.groupBy({
+        by: ["status"],
+        where: { companyId: company.id },
+        _count: { _all: true },
+      }),
+      prisma.document.groupBy({
+        by: ["documentType"],
+        where: { companyId: company.id },
+        _count: { _all: true },
+      }),
+      prisma.transaction.findMany({
+        where: { document: { companyId: company.id } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          vendorName: true,
+          amount: true,
+          totalAmount: true,
+          status: true,
+          createdAt: true,
+          invoiceDate: true,
+          document: { select: { id: true, documentType: true, originalName: true } },
+        },
+      }),
+      prisma.transaction.aggregate({
+        where: { document: { companyId: company.id }, status: "ACCEPTED" },
+        _sum: { totalAmount: true, amount: true },
+      }),
+    ]);
 
-    let pending = 0;
-    let accepted = 0;
-    let rejected = 0;
-    let underReview = 0;
-    let needsInfo = 0;
-    let acceptedRevenue = 0;
-
-    for (const d of docs) {
-      for (const t of d.transactions) {
-        switch (t.status) {
-          case "PENDING":
-            pending += 1;
-            break;
-          case "ACCEPTED":
-            accepted += 1;
-            if (t.totalAmount) acceptedRevenue += t.totalAmount;
-            break;
-          case "REJECTED":
-            rejected += 1;
-            break;
-          case "UNDER_REVIEW":
-            underReview += 1;
-            break;
-          case "NEEDS_INFO":
-            needsInfo += 1;
-            break;
-        }
-      }
+    const statusCounts: Record<string, number> = {
+      PENDING: 0, UNDER_REVIEW: 0, ACCEPTED: 0, REJECTED: 0, NEEDS_INFO: 0,
+    };
+    for (const group of documentsByStatus) {
+      statusCounts[group.status] = group._count._all;
     }
+
+    const typeCounts: Record<string, number> = {};
+    for (const group of documentsByType) {
+      typeCounts[group.documentType] = group._count._all;
+    }
+
+    const totalSpending = spendingAgg._sum.totalAmount ?? spendingAgg._sum.amount ?? 0;
 
     return NextResponse.json({
       company: {
-        ...company,
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        email: company.email,
+        phone: company.phone ?? null,
+        gstin: company.gstin ?? null,
+        pan: company.pan ?? null,
+        address: company.address ?? null,
+        industry: company.industry ?? null,
+        isActive: company.isActive,
+        createdAt: company.createdAt,
         stats: {
           totalDocuments: company._count.documents,
           totalUsers: company._count.users,
           totalReports: company._count.reports,
           totalPaymentHeads: company._count.paymentHeads,
-          pending,
-          accepted,
-          rejected,
-          underReview,
-          needsInfo,
-          acceptedRevenue,
         },
       },
+      users: company.users,
+      usersCount: company._count.users,
+      documentsCount: company._count.documents,
+      documentsByStatus: statusCounts,
+      documentsByType: typeCounts,
+      recentTransactions,
+      totalSpending,
     });
   } catch (err) {
     log.error({ err }, "GET company detail failed");

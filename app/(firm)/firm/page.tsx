@@ -21,6 +21,9 @@ import { ActivityFeed, type ActivityItem } from "@/components/dashboard/activity
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { AiInsights } from "@/components/dashboard/ai-insights";
+import { AnomalySummaryCard } from "@/components/dashboard/anomaly-summary-card";
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 
 interface FirmStats {
   pendingCount: number;
@@ -207,6 +210,10 @@ export default function FirmDashboard() {
   const now = new Date();
   const dateLabel = format(now, "EEEE, MMM d");
 
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Hero header */}
@@ -329,7 +336,10 @@ export default function FirmDashboard() {
         </div>
       </div>
 
-      {/* Review queue + Activity */}
+      {/* AI Insights */}
+      <AiInsights />
+
+      {/* Review queue + Activity + Anomalies */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -434,24 +444,13 @@ export default function FirmDashboard() {
             <p className="text-xs text-muted-foreground">Latest events across all clients</p>
           </div>
           <div className="p-2">
-            {loading ? (
-              <div className="space-y-2 p-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex items-start gap-3 px-3 py-2.5 animate-pulse">
-                    <div className="w-8 h-8 rounded-full bg-muted shrink-0" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-2.5 w-3/4 bg-muted rounded" />
-                      <div className="h-2 w-1/3 bg-muted rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <ActivityFeed items={activity} />
-            )}
+            <ActivityFeed items={activity} />
           </div>
         </motion.div>
       </div>
+
+      {/* Anomaly Detection */}
+      <AnomalySummaryCard />
     </div>
   );
 }

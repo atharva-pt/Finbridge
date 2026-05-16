@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -304,7 +305,9 @@ export default function CompaniesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((company, i) => (
-            <CompanyCard key={company.id} company={company} index={i} />
+            <Link key={company.id} href={`/firm/companies/${company.slug}`}>
+              <CompanyCard company={company} index={i} />
+            </Link>
           ))}
         </div>
       )}
