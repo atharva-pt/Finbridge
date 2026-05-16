@@ -19,6 +19,7 @@ import {
   Menu,
   Shield,
   ClipboardList,
+  Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -150,6 +151,41 @@ export function AppSidebar({ role, user }: AppSidebarProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Search shortcut */}
+      <div className="px-2 pb-2">
+        <button
+          onClick={() => {
+            const event = new KeyboardEvent("keydown", {
+              key: "k",
+              metaKey: true,
+              bubbles: true,
+            });
+            document.dispatchEvent(event);
+          }}
+          className={cn(
+            "w-full flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 hover:bg-accent text-muted-foreground hover:text-foreground transition-all",
+            sidebarOpen ? "px-3 py-2" : "justify-center py-2"
+          )}
+        >
+          <Search className="w-3.5 h-3.5 shrink-0" />
+          <AnimatePresence>
+            {sidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                className="flex items-center justify-between flex-1 overflow-hidden whitespace-nowrap"
+              >
+                <span className="text-xs">Search...</span>
+                <kbd className="text-[10px] font-mono bg-background border border-border rounded px-1.5 py-0.5">
+                  ⌘K
+                </kbd>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-1 space-y-0.5 overflow-y-auto">

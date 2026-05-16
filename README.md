@@ -129,6 +129,15 @@ proxy.ts                        Next 16 proxy (role-based route guard)
 
 Every database query is scoped to `firmId` and/or `companyId` from the JWT. The proxy (`proxy.ts`) enforces role-based path access: `PLATFORM_ADMIN → /admin`, firm roles → `/firm`, company roles → `/company`.
 
+## Testing
+
+```bash
+pnpm test          # run all tests
+pnpm test:watch    # watch mode
+```
+
+Tests cover anomaly detection rules, rate limiting logic, and API health contracts using Vitest.
+
 ## What's intentionally out of scope (per the brief)
 
 - Zoho/QuickBooks/Tally integration

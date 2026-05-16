@@ -23,6 +23,7 @@ import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { AiInsights } from "@/components/dashboard/ai-insights";
 import { AnomalySummaryCard } from "@/components/dashboard/anomaly-summary-card";
+import { AiBriefing } from "@/components/dashboard/ai-briefing";
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 
 interface FirmStats {
@@ -335,6 +336,9 @@ export default function FirmDashboard() {
           <StatusDistribution stats={stats ?? { pendingCount: 0, underReviewCount: 0, acceptedToday: 0, totalCompanies: 0, pendingTransactions: [] }} />
         </div>
       </div>
+
+      {/* AI Briefing */}
+      <AiBriefing />
 
       {/* AI Insights */}
       <AiInsights />

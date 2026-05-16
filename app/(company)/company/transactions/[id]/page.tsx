@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { ActivityTimeline } from "@/components/dashboard/activity-timeline";
 
 interface Transaction {
   id: string;
@@ -646,6 +647,11 @@ export default function CompanyTransactionDetailPage() {
               Back to Transactions
             </Link>
           </motion.div>
+        </div>
+
+        {/* Activity Timeline */}
+        <div className="mt-6">
+          <ActivityTimeline transactionId={id} />
         </div>
       </div>
     </div>

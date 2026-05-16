@@ -31,6 +31,7 @@ import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { AiInsights } from "@/components/dashboard/ai-insights";
+import { AiBriefing } from "@/components/dashboard/ai-briefing";
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 
 interface Stats {
@@ -348,6 +349,9 @@ export default function CompanyDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* AI Briefing */}
+      <AiBriefing />
 
       {/* AI Insights */}
       <AiInsights />

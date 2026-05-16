@@ -1,19 +1,27 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiLogger } from "@/lib/logger";
 
 const log = apiLogger("GET /api/notifications");
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = request.nextUrl;
+    const since = searchParams.get("since");
+
+    const where: Record<string, unknown> = { userId: session.userId };
+    if (since) {
+      where.createdAt = { gt: new Date(since) };
+    }
+
     const notifications = await prisma.notification.findMany({
-      where: { userId: session.userId },
+      where,
       orderBy: { createdAt: "desc" },
       take: 20,
     });

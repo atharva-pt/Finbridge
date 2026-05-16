@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfidenceGauge } from "@/components/dashboard/confidence-gauge";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { FileText, Search, ChevronRight, Download, Brain } from "lucide-react";
+import { FileText, Search, ChevronRight, Download, Brain, CheckCircle2, XCircle, Loader2, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SmartSearch } from "@/components/ai/smart-search";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -20,6 +21,28 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+
+const SELECTABLE_STATUSES = ["PENDING", "UNDER_REVIEW", "NEEDS_INFO"];
+
+function SlaIndicator({ createdAt, status }: { createdAt: string; status: string }) {
+  if (!["PENDING", "UNDER_REVIEW", "NEEDS_INFO"].includes(status)) return null;
+  const hours = Math.floor((Date.now() - new Date(createdAt).getTime()) / 3600000);
+  const isOverdue = hours >= 48;
+  const isWarning = hours >= 24 && hours < 48;
+  if (!isWarning && !isOverdue) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
+        isOverdue
+          ? "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+      )}
+    >
+      {isOverdue ? `⚠ ${hours}h overdue` : `${hours}h pending`}
+    </span>
+  );
+}
 
 interface Transaction {
   id: string;
@@ -106,6 +129,53 @@ export default function FirmTransactionsPage() {
   const [search, setSearch] = useState("");
   const [aiSearch, setAiSearch] = useState(false);
   const [aiResults, setAiResults] = useState<Transaction[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selected.size === selectableTxIds.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(selectableTxIds));
+    }
+  }
+
+  async function handleBulkAction(action: "ACCEPTED" | "REJECTED") {
+    if (selected.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/transactions/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast.success(`${data.updated ?? selected.size} transaction${selected.size > 1 ? "s" : ""} ${action === "ACCEPTED" ? "approved" : "rejected"}`);
+      setSelected(new Set());
+      // Refresh
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (activeFilter) params.set("status", activeFilter);
+      const r = await fetch(`/api/transactions?${params}`);
+      const d = await r.json();
+      setTransactions(d.transactions ?? []);
+      setLoading(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk action failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -133,6 +203,11 @@ export default function FirmTransactionsPage() {
         tx.vendorName?.toLowerCase().includes(q)
     );
   }, [transactions, search, aiSearch, aiResults]);
+
+  const selectableTxIds = useMemo(
+    () => filtered.filter((tx) => SELECTABLE_STATUSES.includes(tx.status)).map((tx) => tx.id),
+    [filtered]
+  );
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -265,7 +340,14 @@ export default function FirmTransactionsPage() {
         </div>
 
         {/* Table header */}
-        <div className="hidden lg:grid grid-cols-[2.6fr_1fr_1.1fr_1.2fr_1fr_1fr_0.4fr] gap-4 px-5 py-2.5 border-b border-border bg-muted/30">
+        <div className="hidden lg:grid grid-cols-[auto_2.6fr_1fr_1.1fr_1.2fr_1fr_1fr_0.4fr] gap-4 px-5 py-2.5 border-b border-border bg-muted/30 items-center">
+          <input
+            type="checkbox"
+            checked={selectableTxIds.length > 0 && selected.size === selectableTxIds.length}
+            onChange={toggleAll}
+            className="w-4 h-4 rounded border-border accent-primary"
+            title="Select all"
+          />
           {["Company / Vendor", "Type", "Amount", "Confidence", "Status", "Updated", ""].map(
             (h) => (
               <div
@@ -298,10 +380,25 @@ export default function FirmTransactionsPage() {
                 initial={{ opacity: 0, x: -4 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: Math.min(i * 0.015, 0.3) }}
+                className={cn(selected.has(tx.id) && "bg-primary/5")}
               >
+                <div className="group grid grid-cols-1 lg:grid-cols-[auto_2.6fr_1fr_1.1fr_1.2fr_1fr_1fr_0.4fr] gap-3 lg:gap-4 items-center px-5 py-3.5 hover:bg-accent/50 transition-colors">
+                  {/* Checkbox */}
+                  <div className="hidden lg:block" onClick={(e) => e.stopPropagation()}>
+                    {SELECTABLE_STATUSES.includes(tx.status) ? (
+                      <input
+                        type="checkbox"
+                        checked={selected.has(tx.id)}
+                        onChange={() => toggleSelect(tx.id)}
+                        className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                      />
+                    ) : (
+                      <div className="w-4 h-4" />
+                    )}
+                  </div>
                 <Link
                   href={`/firm/transactions/${tx.id}`}
-                  className="group grid grid-cols-1 lg:grid-cols-[2.6fr_1fr_1.1fr_1.2fr_1fr_1fr_0.4fr] gap-3 lg:gap-4 items-center px-5 py-3.5 hover:bg-accent/50 transition-colors"
+                  className="group contents"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
@@ -334,7 +431,10 @@ export default function FirmTransactionsPage() {
 
                   <ConfidenceGauge score={tx.confidenceScore} />
 
-                  <StatusBadge status={tx.status} />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <StatusBadge status={tx.status} />
+                    <SlaIndicator createdAt={tx.createdAt} status={tx.status} />
+                  </div>
 
                   <div className="text-xs text-muted-foreground tabular-nums">
                     {formatDistanceToNow(
@@ -347,11 +447,59 @@ export default function FirmTransactionsPage() {
                     <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
+                </div>
               </motion.div>
             ))}
           </div>
         )}
       </motion.div>
+
+      {/* Floating bulk action bar */}
+      <AnimatePresence>
+        {selected.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+          >
+            <div className="flex items-center gap-3 bg-card border border-border rounded-2xl shadow-2xl px-5 py-3">
+              <span className="text-sm font-semibold text-foreground tabular-nums">
+                {selected.size} selected
+              </span>
+              <div className="w-px h-6 bg-border" />
+              <button
+                onClick={() => handleBulkAction("ACCEPTED")}
+                disabled={bulkLoading}
+                className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+              >
+                {bulkLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                Approve All
+              </button>
+              <button
+                onClick={() => handleBulkAction("REJECTED")}
+                disabled={bulkLoading}
+                className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Reject All
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Clear
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

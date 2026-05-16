@@ -27,6 +27,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/audit" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             Audit Log
           </Link>
+          <span className="text-muted-foreground/40 text-sm">·</span>
+          <Link href="/admin/system" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+            System Health
+          </Link>
         </div>
         <AdminSignOutButton name={user.name} email={user.email} />
       </header>

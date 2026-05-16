@@ -220,6 +220,7 @@ model Transaction {
   paymentHead    PaymentHead?    @relation(fields: [paymentHeadId], references: [id])
   paymentSubHead PaymentSubHead? @relation(fields: [paymentSubHeadId], references: [id])
   auditLogs      AuditLog[]
+  activityLogs   ActivityLog[]
 }
 
 model AuditLog {
@@ -249,4 +250,18 @@ model Notification {
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  action        String
+  description   String
+  performedBy   String?
+  performedById String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([transactionId])
 }
